@@ -1,81 +1,94 @@
 import pandas as pd
 import pickle
-from sklearn.preprocessing import OneHotEncoder
 from pathlib import Path
 
-PROCESSED_DIR = Path("data/processed/")
-INPUT_FILE = PROCESSED_DIR / "cleaned_data.csv"
+RAW_PATH = Path("data/raw/swiggy.csv")
+CLEAN_PATH = Path("data/processed/cleaned_data.csv")
+ENCODED_PATH = Path("data/processed/encoded_data.csv")
 
-ENCODED_FILE = PROCESSED_DIR / "encoded_data.csv"
-CITY_ENCODER_FILE = PROCESSED_DIR / "city_encoder.pkl"
-CUISINE_ENCODER_FILE = PROCESSED_DIR / "cuisine_encoder.pkl"
+CITY_ENCODER_PATH = Path("data/processed/city_encoder.pkl")
+CUISINE_LIST_PATH = Path("data/processed/cuisine_list.pkl")
 
+print("\n🔧 Loading raw data...")
+df = pd.read_csv(RAW_PATH)
+print("Raw shape:", df.shape)
 
-def preprocess():
-    print("🔧 Loading cleaned data...")
-    df = pd.read_csv(INPUT_FILE)
-    print("Cleaned data shape:", df.shape)
+# ---------------------- CLEANING ----------------------
 
-    # ----------------------------
-    # 1. One-Hot Encode City
-    # ----------------------------
-    print("🏙️ Encoding city...")
-    city_encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
-    city_encoded = city_encoder.fit_transform(df[["city"]])
-    city_df = pd.DataFrame(
-        city_encoded,
-        columns=city_encoder.get_feature_names_out(["city"])
-    )
+# Replace invalid ratings (“--”) & convert to float
+df["rating"] = pd.to_numeric(df["rating"], errors="coerce")
+df["rating"].fillna(df["rating"].median(), inplace=True)
 
-    # ----------------------------
-    # 2. One-Hot Encode Cuisine
-    # ----------------------------
-    print("🍽️ Encoding cuisine...")
+# Replace missing rating_count
+df["rating_count"] = pd.to_numeric(df["rating_count"], errors="coerce").fillna(0)
 
-    # Convert "A, B, C" → ["A", "B", "C"]
-    df["cuisine_list"] = df["cuisine"].apply(
-        lambda x: [c.strip() for c in str(x).split(",")]
-    )
+# Fix cost — convert & fill missing with 300
+df["cost"] = pd.to_numeric(df["cost"], errors="coerce")
+df["cost"].fillna(300, inplace=True)
 
-    # Cuisine encoder (multi-label one-hot)
-    cuisine_encoder = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
+# Standardize city & cuisine
+df["city"] = df["city"].astype(str).str.strip().fillna("unknown")
+df["cuisine"] = df["cuisine"].astype(str).str.lower().str.replace("&", ",")
 
-    cuisine_encoded = cuisine_encoder.fit_transform(
-        df["cuisine_list"].apply(lambda x: ", ".join(sorted(set(x)))).values.reshape(-1, 1)
-    )
+# Convert cuisine string → list
+df["cuisine_list"] = df["cuisine"].str.split(",")
 
-    cuisine_df = pd.DataFrame(
-        cuisine_encoded,
-        columns=cuisine_encoder.get_feature_names_out(["cuisine"])
-    )
+# Save cleaned data
+df.to_csv(CLEAN_PATH, index=False)
+print("✅ cleaned_data.csv saved.")
 
-    # ----------------------------
-    # 3. Combine Encoded + Numeric Features
-    # ----------------------------
-    print("🔗 Combining features...")
+# ---------------------- ENCODING ----------------------
 
-    numeric_df = df[["rating", "rating_count", "cost"]].reset_index(drop=True)
+print("🏙️ Encoding city names...")
+from sklearn.preprocessing import OneHotEncoder
 
-    final_df = pd.concat([numeric_df, city_df, cuisine_df], axis=1)
+city_enc = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
+city_matrix = city_enc.fit_transform(df[["city"]])
 
-    # ----------------------------
-    # 4. Save encoded dataset
-    # ----------------------------
-    final_df.to_csv(ENCODED_FILE, index=False)
-    print("💾 encoded_data.csv saved.")
+print("🍽️ Extracting cuisine categories...")
 
-    # ----------------------------
-    # 5. Save encoders for Streamlit
-    # ----------------------------
-    with open(CITY_ENCODER_FILE, "wb") as f:
-        pickle.dump(city_encoder, f)
+# Unique cuisines
+all_cuisines = sorted({
+    c.strip()
+    for lst in df["cuisine_list"]
+    for c in lst
+    if c.strip()
+})
 
-    with open(CUISINE_ENCODER_FILE, "wb") as f:
-        pickle.dump(cuisine_encoder, f)
+# SAVE CUISINE LIST for Streamlit
+with open(CUISINE_LIST_PATH, "wb") as f:
+    pickle.dump(all_cuisines, f)
 
-    print("\n🎉 Preprocessing completed successfully!")
-    print(f"Saved:\n - {ENCODED_FILE}\n - {CITY_ENCODER_FILE}\n - {CUISINE_ENCODER_FILE}")
+# Create binary multi-hot cuisine matrix
+df_cuisine = pd.DataFrame(0, index=df.index, columns=all_cuisines)
 
+for idx, lst in enumerate(df["cuisine_list"]):
+    for c in lst:
+        c = c.strip()
+        if c in df_cuisine.columns:
+            df_cuisine.at[idx, c] = 1
 
-if __name__ == "__main__":
-    preprocess()
+# ---------------------- FINAL ENCODED DATA ----------------------
+
+encoded_df = pd.concat(
+    [
+        pd.DataFrame(city_matrix, index=df.index, columns=city_enc.get_feature_names_out(["city"])),
+        df_cuisine,
+        df[["rating", "rating_count", "cost"]],
+    ],
+    axis=1
+)
+
+encoded_df.to_csv(ENCODED_PATH, index=False)
+print("💾 encoded_data.csv saved.")
+
+# Save city encoder
+with open(CITY_ENCODER_PATH, "wb") as f:
+    pickle.dump(city_enc, f)
+
+print("\n🎉 Preprocessing completed successfully!")
+print("Saved files:")
+print(" - cleaned_data.csv")
+print(" - encoded_data.csv")
+print(" - city_encoder.pkl")
+print(" - cuisine_list.pkl")

@@ -1,82 +1,66 @@
 import pandas as pd
-import numpy as np
 import pickle
-from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.preprocessing import OneHotEncoder
 from pathlib import Path
 
-PROCESSED_DIR = Path("data/processed/")
+CLEAN_PATH = "data/processed/cleaned_data.csv"
+ENCODED_PATH = "data/processed/encoded_data.csv"
+CITY_ENCODER_PATH = "data/processed/city_encoder.pkl"
+CUISINE_ENCODER_PATH = "data/processed/cuisine_encoder.pkl"
+MODEL_PATH = "data/processed/kmeans.pkl"
 
-# Load data
-encoded_df = pd.read_csv(PROCESSED_DIR / "encoded_data.csv")
-clean_df = pd.read_csv(PROCESSED_DIR / "cleaned_data.csv")
+print("📥 Loading all data...")
+clean_df = pd.read_csv(CLEAN_PATH)
+encoded_df = pd.read_csv(ENCODED_PATH)
 
-# Load encoders
-with open(PROCESSED_DIR / "city_encoder.pkl", "rb") as f:
-    city_encoder = pickle.load(f)
+city_enc = pickle.load(open(CITY_ENCODER_PATH, "rb"))
+all_cuisines = pickle.load(open(CUISINE_ENCODER_PATH, "rb"))
+kmeans = pickle.load(open(MODEL_PATH, "rb"))
 
-with open(PROCESSED_DIR / "cuisine_encoder.pkl", "rb") as f:
-    cuisine_encoder = pickle.load(f)
+print("✅ Loaded successfully.\n")
 
+# -------------------------------------------------------------------
 
-def build_user_vector(city, cuisine_list, rating, cost):
-    """Convert user input to model feature vector."""
-    
-    # --- City Encoding ---
-    city_vec = city_encoder.transform([[city]])
+def recommend(city, cuisine, min_rating=3.0, max_cost=600, top_n=10):
 
-    # --- Cuisine Encoding ---
-    cuisine_key = ", ".join(sorted(set(cuisine_list)))
-    cuisine_vec = cuisine_encoder.transform([[cuisine_key]])
+    # Build user vector
+    city_vec = city_enc.transform([[city]])[0]
 
-    # Numeric part
-    numeric_vec = np.array([[rating, 0, cost]])  # rating_count always 0 for user
+    cuisine_vec = [1 if c == cuisine.lower() else 0 for c in all_cuisines]
 
-    # Final combined vector
-    final_vec = np.hstack([numeric_vec, city_vec, cuisine_vec])
-    return final_vec
+    user_vector = list(city_vec) + cuisine_vec + [min_rating, 10]  # rating_count dummy
 
+    # Predict cluster
+    cluster_id = kmeans.predict([user_vector])[0]
+    print(f"📌 User assigned to cluster: {cluster_id}")
 
-def recommend(city, cuisine_text, min_rating, max_cost, top_n=5):
-    """Return top-N recommendations using cosine similarity."""
-    
-    cuisine_list = [c.strip() for c in cuisine_text.split(",")]
-    
-    user_vec = build_user_vector(city, cuisine_list, min_rating, max_cost)
+    cluster_data = clean_df[clean_df["cluster"] == cluster_id].copy()
 
-    # Compute cosine similarity
-    similarity = cosine_similarity(user_vec, encoded_df.values)[0]
-
-    clean_df_copy = clean_df.copy()
-    clean_df_copy["similarity"] = similarity
-
-    # Filters
-    filtered = clean_df_copy[
-        (clean_df_copy["city"] == city) &
-        (clean_df_copy["rating"] >= min_rating) &
-        (clean_df_copy["cost"] <= max_cost)
+    # Apply filters
+    results = cluster_data[
+        (cluster_data["city"].str.lower() == city.lower()) &
+        (cluster_data["cuisine"].str.contains(cuisine, case=False)) &
+        (cluster_data["rating"] >= min_rating) &
+        (cluster_data["cost"] <= max_cost)
     ]
 
-    if filtered.empty:
-        return pd.DataFrame()
+    if results.empty:
+        print("\n⚠ No exact match! Showing nearest items from cluster.\n")
+        return cluster_data.head(top_n)[["name", "city", "cuisine", "rating", "cost"]]
 
-    # Sort by similarity
-    results = filtered.sort_values("similarity", ascending=False).head(top_n)
+    return results.head(top_n)[["name", "city", "cuisine", "rating", "cost"]]
 
-    return results[
-        ["name", "city", "cuisine", "rating", "rating_count", "cost", "address", "link"]
-    ]
+# -------------------------------------------------------------------
 
+print("Testing K-Means ONLY recommendation...\n")
 
-# Test run
-if __name__ == "__main__":
-    print("Testing recommendation...\n")
+res = recommend(
+    city="Chennai",
+    cuisine="biryani",
+    min_rating=4.0,
+    max_cost=500,
+    top_n=5
+)
 
-    test_output = recommend(
-        city="Ambattur,Chennai",
-        cuisine_text="South Indian",
-        min_rating=3.5,
-        max_cost=300,
-        top_n=5
-    )
-
-    print(test_output)
+print("\nRESULTS:\n")
+print(res)
