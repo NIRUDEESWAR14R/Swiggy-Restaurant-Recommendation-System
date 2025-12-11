@@ -1,138 +1,127 @@
-# Swiggy Restaurant Recommendation System
+# 🍽️ Swiggy Restaurant Recommendation System
 
-A machine-learning–based restaurant recommendation system built using **Python, One-Hot Encoding, Cosine Similarity, and Streamlit**.
+This project is a **Restaurant Recommendation System** built using  
+**Machine Learning (K-Means Clustering)** and deployed through a  
+**Streamlit web application**.  
 
----
-
-## 📌 Project Overview
-
-This project recommends restaurants to users based on:
-
-- City  
-- Cuisine preference  
-- Minimum rating  
-- Maximum cost  
-- Number of recommendations  
-
-The system performs:
-
-- Data Cleaning  
-- Data Preprocessing (One-Hot Encoding)  
-- Similarity-based Recommendation  
-- Streamlit Web Application  
+It recommends restaurants based on the user's selected **city**, **cuisine**, **rating**, and **budget**.  
+K-Means is used to group similar restaurants and improve recommendation quality by ranking results using cluster similarity.
 
 ---
 
-## 🧠 Skills Used
+## 🚀 Features
 
-- Data Preprocessing  
-- One-Hot Encoding  
-- Cosine Similarity  
-- Python  
-- Streamlit  
-- Pandas, Scikit-learn  
+### ✅ **ML-Based Recommendations**
+- Uses **K-Means clustering** to group similar restaurants.
+- Ranks restaurants based on:
+  - City & cuisine match
+  - Rating >= user threshold
+  - Cost <= user budget
+  - Cluster similarity (same-cluster restaurants prioritized)
+
+### ✅ **Streamlit Web App**
+- Clean UI with:
+  - Sidebar filters
+  - Restaurant cards
+  - Direct Swiggy links
+- No pre-filled selections; user fully controls filters.
+
+### ✅ **Efficient Data Processing**
+- One-hot encoded cities
+- Multi-hot encoded cuisines
+- Handles missing values automatically
+- Optimized MiniBatchKMeans for fast training (148K+ restaurants)
+
+---
+## FLOW
+
+### 🧹 Step 1: Preprocess Data
+
+Creates:
+
+ - cleaned_data.csv
+
+ - encoded_data.csv
+
+ - city_encoder.pkl
+
+ - python src/preprocess.py
+
+### ⚡ Step 2: Train K-Means
+
+Creates:
+
+ - kmeans.pkl
+
+ - cleaned_data.csv (with cluster labels)
+
+ - python src/train_kmeans.py
+
+### 🤖 Step 3: Test Recommendation Logic (Optional)
+python src/recommendation.py
+
+### 🌐 Step 4: Run the Streamlit App
+streamlit run src/app.py
 
 ---
 
-## 📂 Project Structure
+## 🧠 Machine Learning Used
 
-![Untitled - Frame 1 (4)](https://github.com/user-attachments/assets/b306c2fe-d745-4185-b227-ba7c445bf9f3)
+ - K-Means Clustering
 
+ - Groups restaurants based on:
 
----
+ - city encoding
 
-## 🧹 Data Cleaning
+ - cuisine encoding
 
-- Removes duplicates
-- Converts cost to numeric
-- Handles missing values
-- Saves processed output to **cleaned_data.csv**
+ - rating
 
----
+ - rating_count
 
-## 🔧 Data Preprocessing
-
-- One-Hot Encodes **city**
-- One-Hot Encodes **cuisine**
-- Combines numerical features
-- Saves outputs:
-  - `encoded_data.csv`
-  - `city_encoder.pkl`
-  - `cuisine_encoder.pkl`
+ - cost
 
 ---
 
-## 🤖 Recommendation Engine
+### Why K-Means?
 
-Uses **Cosine Similarity** to:
+ - No labelled data required
 
-1. Convert user input to encoded vector  
-2. Calculate similarities with restaurants  
-3. Filter by rating & cost  
-4. Return top N recommendations  
+ - Fast & scalable for 100K+ rows
 
----
-
-## 🌐 Streamlit App
-
-Provides:
-
-- City selection  
-- Cuisine selection  
-- Rating and cost filters  
-- Number of recommendations slider  
-- Displays:
-  - Restaurant name
-  - City
-  - Cuisine
-  - Rating
-  - Cost
-  - Address
-  - Swiggy link
-
+ - Ideal for grouping similar restaurants
 
 ---
 
-## 📊 Results
+### 📊 Dataset
 
-- Clean, consistent dataset  
-- Fully encoded dataset for ML  
-- Accurate recommendations  
-- Fully functional Streamlit UI  
+The dataset contains 148,541 restaurants with fields:
 
----
+ - Name
 
-## 📈 Evaluation Metrics
+ - City
 
-- Recommendation relevance  
-- Speed & performance  
-- UX quality  
-- Clean–encoded dataset alignment  
+ - Cuisine
 
----
+ - Rating
 
-## 📘 Report Summary
+ - Rating Count
 
-### Data Cleaning  
-Removed duplicates, fixed missing values, normalized cost column.
+ - Cost for Two
 
-### Preprocessing  
-Applied One-Hot Encoding to city & cuisine; combined with numerical features.
+ - Address
 
-### Recommendation Logic  
-Cosine similarity used for preference-based ranking.
-
-### Key Insights  
-Cuisine similarity strongly impacts ranking; cost and rating filters enhance precision.
+ - Swiggy Link
 
 ---
 
-## 🛠️ Tech Stack
+### 🎯 Future Enhancements
 
-- Python  
-- Pandas  
-- Scikit-learn  
-- Streamlit  
+ - Add collaborative filtering
+
+ - Hybrid recommender (content + clustering + cosine)
+
+ - User login & preference history
 
 ---
 
