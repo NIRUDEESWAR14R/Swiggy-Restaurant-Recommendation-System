@@ -33,6 +33,12 @@ K-Means is used to group similar restaurants and improve recommendation quality 
 - Optimized MiniBatchKMeans for fast training (148K+ restaurants)
 
 ---
+## STRUCTURE
+
+![Untitled - Frame 1 (5)](https://github.com/user-attachments/assets/7782750b-80d6-4f46-82b8-53a3c0dccc6d)
+
+
+---
 ## FLOW
 
 ### 🧹 Step 1: Preprocess Data
